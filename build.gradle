@@ -1,0 +1,38 @@
+plugins {
+    id 'java-library'
+}
+
+group 'fr.redstonneur1256'
+version '1.1'
+
+allprojects {
+    apply plugin: 'java-library'
+
+    repositories {
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+
+    java {
+        withJavadocJar()
+        withSourcesJar()
+    }
+
+    sourceSets {
+        main.java.srcDirs = ['src/']
+        main.resources.srcDirs = []
+        test.java.srcDirs = []
+        test.resources.srcDirs = []
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+    }
+}
+
+dependencies {
+    api('org.jetbrains:annotations:21.0.1')
+    api('com.github.Redstonneur1256:RedUtilities:1.5.3')
+}
