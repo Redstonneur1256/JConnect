@@ -4,4 +4,8 @@ public class BasicPacket {
 
     short nonce;
 
+    public short getNonce() {
+        return nonce;
+    }
+
 }

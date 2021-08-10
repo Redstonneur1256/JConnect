@@ -1,10 +1,9 @@
 package fr.redstonneur1256.jconnect.examples;
 
-import fr.redstonneur1256.jconnect.api.JConnection;
 import fr.redstonneur1256.jconnect.api.PacketSerializer;
-import fr.redstonneur1256.jconnect.impl.Connection;
+import fr.redstonneur1256.jconnect.api.client.JConnection;
 import fr.redstonneur1256.jconnect.impl.binary.BinaryPacket;
-import fr.redstonneur1256.jconnect.impl.binary.BinarySerializer;
+import fr.redstonneur1256.jconnect.impl.io.TCPConnection;
 import fr.redstonneur1256.redutilities.async.Task;
 
 import java.io.IOException;
@@ -15,8 +14,8 @@ public class ClientExample {
         // Create a packet serializer with the MessagePacket registered
         PacketSerializer<BinaryPacket> serializer = ExampleSerializer.createPacketSerializer();
 
-        // Create a connection
-        JConnection<BinaryPacket> connection = new Connection<>(serializer);
+        // Create a TCP connection
+        JConnection<BinaryPacket> connection = new TCPConnection<>(serializer);
 
         // Connect to localhost:1256 with a timeout of 5000 ms
         connection.connect("localhost", 1256, 5000);
@@ -37,7 +36,7 @@ public class ClientExample {
         task.onFail(Throwable::printStackTrace);
 
 
-        // Block here till the task is complete. All Connection threads are daemon and we don't want that example to exit too soon
+        // Block here till the task is complete. All Connection threads are daemon, we don't want that example to exit too soon
         task.waitComplete();
     }
 

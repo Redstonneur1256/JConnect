@@ -1,11 +1,11 @@
-package fr.redstonneur1256.jconnect.api;
+package fr.redstonneur1256.jconnect.api.client;
 
+import fr.redstonneur1256.jconnect.api.PacketSerializer;
 import fr.redstonneur1256.redutilities.async.Task;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -22,8 +22,6 @@ public interface JConnection<P> {
     void connect(@NotNull InetSocketAddress address) throws IOException;
 
     void connect(@NotNull InetSocketAddress address, int timeout) throws IOException;
-
-    void open(@NotNull  Socket socket) throws IOException;
 
     void disconnect();
 

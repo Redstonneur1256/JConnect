@@ -1,9 +1,10 @@
 package fr.redstonneur1256.jconnect.examples;
 
-import fr.redstonneur1256.jconnect.api.JConnection;
 import fr.redstonneur1256.jconnect.api.PacketSerializer;
-import fr.redstonneur1256.jconnect.impl.Connection;
+import fr.redstonneur1256.jconnect.examples.ExampleSerializer;
+import fr.redstonneur1256.jconnect.examples.MessagePacket;
 import fr.redstonneur1256.jconnect.impl.binary.BinaryPacket;
+import fr.redstonneur1256.jconnect.impl.io.TCPConnection;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -24,7 +25,7 @@ public class ServerExample {
 
             System.out.printf("Accepting connection %s%n", socket);
 
-            JConnection<BinaryPacket> connection = new Connection<>(serializer);
+            TCPConnection<BinaryPacket> connection = new TCPConnection<>(serializer);
 
             // When we get an incoming MessagePacket
             connection.handlePacket(MessagePacket.class, (MessagePacket packet) -> {

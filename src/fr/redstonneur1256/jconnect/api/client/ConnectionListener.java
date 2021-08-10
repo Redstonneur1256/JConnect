@@ -1,6 +1,7 @@
-package fr.redstonneur1256.jconnect.api;
+package fr.redstonneur1256.jconnect.api.client;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public interface ConnectionListener<P> {
 
@@ -12,7 +13,7 @@ public interface ConnectionListener<P> {
      *
      * @param throwable the exception that caused the end of the connection or null if {@link JConnection#disconnect()} was called
      */
-    default void connectionClosed(@NotNull Throwable throwable) {
+    default void connectionClosed(@Nullable Throwable throwable) {
     }
 
     /**
@@ -23,10 +24,10 @@ public interface ConnectionListener<P> {
     default void quietException(@NotNull Throwable throwable) {
     }
 
-    default void packetReceived(P packet) {
+    default void packetReceived(@NotNull P packet) {
     }
 
-    default void packetSent(P packet) {
+    default void packetSent(@NotNull P packet) {
     }
 
 }

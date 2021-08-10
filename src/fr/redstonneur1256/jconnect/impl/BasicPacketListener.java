@@ -1,19 +1,24 @@
 package fr.redstonneur1256.jconnect.impl;
 
-import fr.redstonneur1256.jconnect.api.PacketListener;
+import fr.redstonneur1256.jconnect.api.client.PacketListener;
 
 import java.util.function.Consumer;
 
 public class BasicPacketListener<P extends BasicPacket> implements PacketListener<P> {
 
-    private Connection<?> connection;
+    private AbstractConnection<P> connection;
     private Class<P> type;
     private Consumer<P> listener;
 
-    public BasicPacketListener(Connection<?> connection, Class<P> type, Consumer<P> listener) {
+    public BasicPacketListener(AbstractConnection<P> connection, Class<P> type, Consumer<P> listener) {
         this.connection = connection;
         this.type = type;
         this.listener = listener;
+    }
+
+    @Override
+    public AbstractConnection<P> getConnection() {
+        return connection;
     }
 
     @Override
@@ -28,7 +33,7 @@ public class BasicPacketListener<P extends BasicPacket> implements PacketListene
 
     @Override
     public void unregister() {
-
+        connection.removeListener(this);
     }
 
 }

@@ -1,20 +1,16 @@
 package fr.redstonneur1256.jconnect.impl;
 
-import fr.redstonneur1256.jconnect.api.ConnectionListener;
-import fr.redstonneur1256.jconnect.api.JConnection;
-import fr.redstonneur1256.jconnect.api.PacketListener;
+import fr.redstonneur1256.jconnect.api.client.ConnectionListener;
+import fr.redstonneur1256.jconnect.api.client.JConnection;
+import fr.redstonneur1256.jconnect.api.client.PacketListener;
 import fr.redstonneur1256.jconnect.api.PacketSerializer;
 import fr.redstonneur1256.redutilities.async.Task;
-import fr.redstonneur1256.redutilities.async.Threads;
 import fr.redstonneur1256.redutilities.io.GrowingBuffer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,24 +19,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 @SuppressWarnings("unchecked")
-public class Connection<P extends BasicPacket> implements JConnection<P> {
+public abstract class AbstractConnection<P extends BasicPacket> implements JConnection<P> {
 
     /**
      * The packet nonce will never be negative, so we can use the first bit to say there is no nonce
      */
-    private static final byte BIT8 = (byte) 0b10000000;
+    protected static final byte BIT8 = (byte) 0b10000000;
 
-    private PacketSerializer<P> serializer;
-    private List<ConnectionListener<P>> listeners;
-    private Map<Class<? extends P>, List<Consumer<?>>> typeListeners;
-    private Map<Short, WaitingListener<?>> packetListeners;
-    private Socket socket;
-    private DataInputStream input;
-    private DataOutputStream output;
-    private Thread readerThread;
-    private int nonce;
+    protected PacketSerializer<P> serializer;
+    protected List<ConnectionListener<P>> listeners;
+    protected Map<Class<? extends P>, List<Consumer<?>>> typeListeners;
+    protected Map<Short, WaitingListener<?>> packetListeners;
+    protected int nonce;
 
-    public Connection(PacketSerializer<P> serializer) {
+    public AbstractConnection(@NotNull PacketSerializer<P> serializer) {
         this.serializer = serializer;
         this.listeners = new CopyOnWriteArrayList<>();
         this.typeListeners = new HashMap<>();
@@ -48,8 +40,8 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
     }
 
     @Override
-    public synchronized boolean isConnected() {
-        return socket != null && socket.isConnected() && !socket.isClosed();
+    public boolean isConnected() {
+        return isConnected0();
     }
 
     @Override
@@ -72,24 +64,7 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
         if(isConnected()) {
             throw new IllegalStateException("The connection is already connected.");
         }
-        Socket socket = new Socket();
-        socket.connect(address, timeout);
-        open(socket);
-    }
-
-    public synchronized void open(@NotNull Socket socket) throws IOException {
-        if(!socket.isConnected()) {
-            throw new UnsupportedOperationException();
-        }
-        this.socket = socket;
-
-        input = new DataInputStream(socket.getInputStream());
-        output = new DataOutputStream(socket.getOutputStream());
-        readerThread = Threads.daemon(socket.getRemoteSocketAddress() + "-Connection-Reader", this::readData);
-
-        for(ConnectionListener<P> listener : listeners) {
-            listener.connectionOpened();
-        }
+        open0(address, timeout);
     }
 
     @Override
@@ -137,8 +112,23 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
         Objects.requireNonNull(listener, "listener cannot be null");
 
         typeListeners.computeIfAbsent(type, clazz -> new CopyOnWriteArrayList<>()).add(listener);
-        return new BasicPacketListener<>(this, type, listener);
+        return new BasicPacketListener<>((AbstractConnection<T>) this, type, listener);
     }
+
+    public void removeListener(PacketListener<?> listener) {
+        List<Consumer<?>> listeners = typeListeners.get(listener.getType());
+        if(listeners != null) {
+            listeners.remove(listener.getListener());
+        }
+    }
+
+    protected abstract boolean isConnected0();
+
+    protected abstract void open0(@NotNull InetSocketAddress address, int timeout) throws IOException;
+
+    protected abstract void close0();
+
+    protected abstract void send0(byte[] data, int length) throws IOException;
 
     @NotNull
     @Override
@@ -164,7 +154,8 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
         return listeners;
     }
 
-    private synchronized <R extends P> Task<R> sendPacket(@NotNull P packet, @Nullable P original, @Nullable Class<R> expectedReply) {
+
+    protected synchronized <R extends P> Task<R> sendPacket(@NotNull P packet, @Nullable P original, @Nullable Class<R> expectedReply) {
         Task<R> task = expectedReply == null ? null : new Task<>();
 
         GrowingBuffer buffer = GrowingBuffer.allocate(512);
@@ -188,11 +179,7 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
         }
 
         try {
-            int length = buffer.position();
-
-            output.writeInt(length);
-            output.write(buffer.array(), 0, length);
-            output.flush();
+            send0(buffer.array(), buffer.position());
         }catch(IOException exception) {
             packetListeners.remove(nonce);
             throw new RuntimeException(exception);
@@ -205,27 +192,7 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
         return task;
     }
 
-    private void readData(Thread thread) {
-        try {
-            DataInputStream stream = this.input;
-
-            while(!thread.isInterrupted()) {
-                int length = stream.readInt();
-                byte[] bytes = new byte[length];
-                stream.readFully(bytes);
-
-                try {
-                    handleData(GrowingBuffer.wrap(bytes));
-                }catch(Throwable throwable) {
-                    quietException(throwable);
-                }
-            }
-        }catch(Throwable throwable) {
-            close(throwable);
-        }
-    }
-
-    private void handleData(@NotNull GrowingBuffer buffer) {
+    protected void handleData(@NotNull GrowingBuffer buffer) {
         short nonce = buffer.getShort();
 
         byte a = buffer.get();
@@ -233,7 +200,6 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
         byte b = hasListener ? buffer.get() : 0;
 
         P packet = serializer.read(buffer);
-
         packet.nonce = nonce;
 
         for(ConnectionListener<P> listener : listeners) {
@@ -262,39 +228,33 @@ public class Connection<P extends BasicPacket> implements JConnection<P> {
 
     }
 
-    private short incrementNonce() {
+    protected short incrementNonce() {
         if(nonce >= Short.MAX_VALUE) {
             nonce = 0;
         }
         return (short) nonce++;
     }
 
-    private void close(Throwable throwable) {
-        if(!readerThread.isInterrupted()) {
-            readerThread.interrupt();
-        }
-        try {
-            socket.close();
-        }catch(IOException ignored) {
-        }
+    protected void close(@Nullable Throwable throwable) {
+        close0();
 
         for(ConnectionListener<P> listener : listeners) {
             listener.connectionClosed(throwable);
         }
     }
 
-    private void quietException(Throwable throwable) {
+    protected void quietException(Throwable throwable) {
         for(ConnectionListener<P> listener : listeners) {
             listener.quietException(throwable);
         }
     }
 
-    private static class WaitingListener<T> {
+    protected static class WaitingListener<T> {
 
-        private Class<T> type;
-        private Task<T> task;
+        protected Class<T> type;
+        protected Task<T> task;
 
-        private WaitingListener(Class<T> type, Task<T> task) {
+        protected WaitingListener(Class<T> type, Task<T> task) {
             this.type = type;
             this.task = task;
         }

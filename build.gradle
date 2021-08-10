@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'maven'
 }
 
 group 'fr.redstonneur1256'
@@ -7,6 +8,7 @@ version '1.1'
 
 allprojects {
     apply plugin: 'java-library'
+    apply plugin: 'maven'
 
     repositories {
         mavenCentral()
@@ -29,6 +31,11 @@ allprojects {
         options.encoding = 'UTF-8'
         sourceCompatibility = 1.8
         targetCompatibility = 1.8
+    }
+
+    artifacts {
+        archives(sourcesJar)
+        archives(javadocJar)
     }
 }
 
